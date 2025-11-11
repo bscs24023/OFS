@@ -118,3 +118,28 @@ uint32_t UserManagerHash::userCount() const
 {
     return static_cast<uint32_t>(size);
 }
+
+
+vector<UserInfo> UserManagerHash::listUsersSorted() {
+    vector<UserInfo> allUsers;
+
+    for (auto bucket : table) 
+    {
+        HashNode* node = bucket;
+        while (node) 
+        {
+            if (node->value) 
+            {
+                allUsers.push_back(*node->value);
+            }
+            node = node->next;
+        }
+    }
+
+    sort(allUsers.begin(), allUsers.end(),[](const UserInfo &a, const UserInfo &b) 
+         {
+             return a.username < b.username;
+         });
+
+    return allUsers;
+}

@@ -1,100 +1,103 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "../source/include/user_manager_hash.hpp"
-#include "../source/include/dir_tree.hpp"
-#include "../source/include/path_index.hpp"
-#include "../source/include/free_bitmap.hpp"
+#include "../source/include/fs_core.hpp"
+#include "../source/include/fs_user.hpp"
+#include "../source/include/fs_file.hpp"
+#include "../source/include/odf_types.hpp"
 
 using namespace std;
 
 int main() {
-    cout << "==== Testing UserManagerHash ====" << endl;
-    UserManagerHash um(10);
+    cout << "===== OMNI FILE SYSTEM TEST =====" << endl;
 
-    UserInfo alice("alice", "hash123", UserRole::NORMAL, 0);
-    UserInfo bob("bob", "pass456", UserRole::NORMAL, 0);
+    void* fs_instance = nullptr;
 
-    cout << "Add alice: " << (int)um.addUser(alice) << endl;
-    cout << "Add bob:   " << (int)um.addUser(bob) << endl;
-    cout << "Add alice again (should fail): " << (int)um.addUser(alice) << endl;
+    cout << "\n[1] Formatting File System..." << endl;
+    int fmt = fs_format("omni_data.omni", "config.cfg");
+    cout << "fs_format returned: " << fmt << endl;
 
-    cout << "Login alice (correct pw): " << (int)um.loginUser("alice", "hash123") << endl;
-    cout << "Login alice (wrong pw):   " << (int)um.loginUser("alice", "bad") << endl;
-    cout << "Login nonexist:           " << (int)um.loginUser("charlie", "123") << endl;
-
-    cout << "User count: " << um.userCount() << endl << endl;
-
-
-
-    cout << "==== Testing DirTree ====" << endl;
-    DirTree tree;
-
-    FileEntry f1("docs", EntryType::DIRECTORY, 0, 0755, "alice", 0);
-    FileEntry f2("file.txt", EntryType::FILE, 100, 0644, "alice", 0);
-
-    cout << "Create /docs: " << (int)tree.createEntry("/docs", f1) << endl;
-    cout << "Create /docs/file.txt: " << (int)tree.createEntry("/docs/file.txt", f2) << endl;
-
-    vector<FileEntry> entries;
-    cout << "List /docs: " << (int)tree.listDirectory("/docs", entries) << endl;
-    for (auto &e : entries) {
-        cout << " - " << e.name << endl;
+    cout << "\n[2] Initializing File System..." << endl;
+    int init_code = fs_init(&fs_instance, "omni_data.omni", "config.cfg");
+    cout << "fs_init returned: " << init_code << endl;
+    if (!fs_instance) {
+        cout << "❌ Failed to initialize file system!" << endl;
+        return -1;
     }
 
-    cout << "Remove /docs/file.txt: " << (int)tree.removeEntry("/docs/file.txt") << endl;
-    cout << "Remove /docs: " << (int)tree.removeEntry("/docs") << endl;
+    cout << "\n[3] Admin Login..." << endl;
+    void* admin_session = nullptr;
+    int login_code = user_login(&admin_session, "root", "root");
+    cout << "user_login returned: " << login_code << endl;
 
-    cout << "Final tree:\n";
-    tree.printTree();
-    cout << endl;
+    cout << "\n[4] Create Users..." << endl;
+    int add1 = user_create(admin_session, "alice", "hash123", UserRole::NORMAL);
+    int add2 = user_create(admin_session, "bob", "pass456", UserRole::NORMAL);
+    cout << "Create alice: " << add1 << endl;
+    cout << "Create bob:   " << add2 << endl;
 
+    cout << "\n[5] List Users..." << endl;
+    UserInfo* users = nullptr;
+    int count = 0;
+    int list_code = user_list(admin_session, &users, &count);
+    cout << "user_list returned: " << list_code << " | Count = " << count << endl;
+    for (int i = 0; i < count; ++i) {
+        cout << " - " << users[i].username << " (role=" << (int)users[i].role << ")" << endl;
+    }
+    delete[] users;
 
+    cout << "\n[6] Login as Alice..." << endl;
+    void* alice_session = nullptr;
+    int alice_login = user_login(&alice_session, "alice", "hash123");
+    cout << "user_login (alice): " << alice_login << endl;
 
-    cout << "==== Testing PathIndex ====" << endl;
-    PathIndex pathIndex;
+    cout << "\n[7] Create a File..." << endl;
+    int create_file = file_create(alice_session, "/hello.txt", "Hello, OmniFS!", 16);
+    cout << "file_create returned: " << create_file << endl;
 
-    FileMetadata meta1("/docs/file1.txt", f2);
-    FileMetadata meta2("/docs/file2.txt", f2);
+    cout << "\n[8] Read the File..." << endl;
+    char* buffer = nullptr;
+    size_t size = 0;
+    int read_code = file_read(alice_session, "/hello.txt", &buffer, &size);
+    cout << "file_read returned: " << read_code << " | Size = " << size << endl;
+    if (buffer) {
+        cout << "Content: " << buffer << endl;
+        delete[] buffer;
+    }
 
-    cout << "Insert /docs/file1.txt: " << (int)pathIndex.insert("/docs/file1.txt", meta1) << endl;
-    cout << "Insert /docs/file2.txt: " << (int)pathIndex.insert("/docs/file2.txt", meta2) << endl;
-    cout << "Insert duplicate (should fail): " << (int)pathIndex.insert("/docs/file1.txt", meta1) << endl;
+    cout << "\n[9] Edit the File..." << endl;
+    int edit_code = file_edit(alice_session, "/hello.txt", "Updated Content", 15, 0);
+    cout << "file_edit returned: " << edit_code << endl;
 
-    FileMetadata* found = pathIndex.find("/docs/file1.txt");
-    if (found != nullptr)
-        cout << "Found /docs/file1.txt owned by " << found->entry.owner << endl;
-    else
-        cout << "File not found" << endl;
+    cout << "\n[10] Rename the File..." << endl;
+    int rename_code = file_rename(alice_session, "/hello.txt", "/greetings.txt");
+    cout << "file_rename returned: " << rename_code << endl;
 
-    cout << "List all paths:" << endl;
-    for (const auto &p : pathIndex.listPaths())
-        cout << " - " << p << endl;
+    cout << "\n[11] Check if File Exists..." << endl;
+    int exists_code = file_exists(alice_session, "/greetings.txt");
+    cout << "file_exists returned: " << exists_code << endl;
 
-    cout << "Remove /docs/file2.txt: " << (int)pathIndex.remove("/docs/file2.txt") << endl;
-    cout << "Find removed file (should be null): " << (pathIndex.find("/docs/file2.txt") == nullptr ? "nullptr" : "exists") << endl;
-    cout << endl;
+    cout << "\n[12] Truncate the File..." << endl;
+    int truncate_code = file_truncate(alice_session, "/greetings.txt");
+    cout << "file_truncate returned: " << truncate_code << endl;
 
+    cout << "\n[13] Delete the File..." << endl;
+    int delete_code = file_delete(alice_session, "/greetings.txt");
+    cout << "file_delete returned: " << delete_code << endl;
 
+    cout << "\n[14] Logout Alice..." << endl;
+    int logout_alice = user_logout(alice_session);
+    cout << "user_logout (alice): " << logout_alice << endl;
 
-    cout << "==== Testing FreeBitmap ====" << endl;
-    FreeBitmap bitmap;
-    bitmap.init(16);
+    cout << "\n[15] Logout Admin..." << endl;
+    int logout_admin = user_logout(admin_session);
+    cout << "user_logout (admin): " << logout_admin << endl;
 
-    cout << "Initially free: " << bitmap.freeCount() << "/" << bitmap.totalBlocks() << endl;
+    cout << "\n[16] Shutdown File System..." << endl;
+    fs_shutdown(fs_instance);
+    cout << "fs_shutdown complete." << endl;
 
-    auto alloc = bitmap.allocateBlocks(5);
-    cout << "Allocate 5 blocks -> status: " << (int)alloc.first << endl;
-    cout << "Allocated: ";
-    for (auto b : alloc.second) cout << b << " ";
-    cout << endl;
-
-    cout << "Free count after alloc: " << bitmap.freeCount() << endl;
-
-    bitmap.freeBlocks(alloc.second);
-    cout << "Free count after freeing: " << bitmap.freeCount() << endl;
-
-    cout << endl << "==== All tests completed successfully ====" << endl;
-
+    cout << "\n===== ✅ ALL TESTS COMPLETE =====" << endl;
     return 0;
 }
+

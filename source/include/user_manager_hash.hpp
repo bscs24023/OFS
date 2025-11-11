@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include "odf_types.hpp"
 
 using namespace std;
@@ -34,6 +35,8 @@ public:
     UserInfo* findUser(const string& username) const;
     OFSErrorCodes loginUser(const string& username, const string& password_hash);
     uint32_t userCount() const;
+    vector<UserInfo> listUsersSorted();
+
 };
 
 #endif
