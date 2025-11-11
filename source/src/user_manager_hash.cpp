@@ -1,94 +1,120 @@
 #include "../include/user_manager_hash.hpp"
-#include <cstring>
+#include <ctime>
 
 using namespace std;
 
-UserManagerHash::UserManagerHash(uint32_t max_users): map_(), max_users_(max_users) 
+size_t UserManagerHash::hash(const string& key) const 
 {
-    map_.reserve(max_users_);
+    size_t h = 0;
+    for (char c : key) 
+    {
+        h = (h * 31 + c) % capacity;
+    }
+    return h;
 }
 
-UserManagerHash::~UserManagerHash() = default;
+UserManagerHash::UserManagerHash(uint32_t max_users): capacity(101), max_users(max_users), size(0) 
+{
+    table.resize(capacity, nullptr);
+}
+
+UserManagerHash::~UserManagerHash() 
+{
+    for (size_t i = 0; i < capacity; ++i) 
+    {
+        HashNode* node = table[i];
+        while (node) 
+        {
+            HashNode* tmp = node;
+            node = node->next;
+            delete tmp->value;
+            delete tmp;
+        }
+    }
+}
 
 OFSErrorCodes UserManagerHash::addUser(const UserInfo& user) 
 {
-    string uname(user.username);
-    if (map_.size() >= max_users_) 
+    if (size >= max_users) 
     {
         return OFSErrorCodes::ERROR_NO_SPACE;
     }
-    if (map_.find(uname) != map_.end()) 
+    string uname = user.username;
+    size_t idx = hash(uname);
+    HashNode* node = table[idx];
+    while (node) 
     {
-        return OFSErrorCodes::ERROR_FILE_EXISTS;
+        if (node->key == uname) 
+        {
+            return OFSErrorCodes::ERROR_FILE_EXISTS;
+        }
+        node = node->next;
     }
-    map_.emplace(uname, user);
+    UserInfo* u = new UserInfo(user);
+    HashNode* new_node = new HashNode(uname, u);
+    new_node->next = table[idx];
+    table[idx] = new_node;
+    ++size;
     return OFSErrorCodes::SUCCESS;
 }
 
 OFSErrorCodes UserManagerHash::removeUser(const string& username) 
 {
-    auto it = map_.find(username);
-    if (it == map_.end()) 
+    size_t idx = hash(username);
+    HashNode* node = table[idx];
+    HashNode* prev = nullptr;
+    while (node) 
     {
-        return OFSErrorCodes::ERROR_NOT_FOUND;
+        if (node->key == username) 
+        {
+            if (prev) prev->next = node->next;
+            else table[idx] = node->next;
+            delete node->value;
+            delete node;
+            --size;
+            return OFSErrorCodes::SUCCESS;
+        }
+        prev = node;
+        node = node->next;
     }
-    map_.erase(it);
-    return OFSErrorCodes::SUCCESS;
+    return OFSErrorCodes::ERROR_NOT_FOUND;
 }
 
-optional<UserInfo> UserManagerHash::findUser(const string& username) const 
+UserInfo* UserManagerHash::findUser(const string& username) const 
 {
-    auto it = map_.find(username);
-    if (it == map_.end()) 
+    size_t idx = hash(username);
+    HashNode* node = table[idx];
+    while (node) 
     {
-        return nullopt;
+        if (node->key == username) 
+        {
+            return node->value;
+        }
+        node = node->next;
     }
-    return it->second;
+    return nullptr;
 }
 
 OFSErrorCodes UserManagerHash::loginUser(const string& username, const string& password_hash) 
 {
-    auto it = map_.find(username);
-    if (it == map_.end()) 
+    UserInfo* u = findUser(username);
+    if (!u) 
     {
         return OFSErrorCodes::ERROR_NOT_FOUND;
     }
-    const UserInfo& ui = it->second;
-    if (!ui.is_active) 
+    if (!u->is_active) 
     {
         return OFSErrorCodes::ERROR_INVALID_SESSION;
     }
-    if (std::strncmp(ui.password_hash, password_hash.c_str(), sizeof(ui.password_hash)) == 0) 
+    if (string(u->password_hash) == password_hash) 
     {
-        UserInfo updated = it->second;
-        updated.last_login = static_cast<uint64_t>(std::time(nullptr));
-        it->second = updated;
+        u->last_login = static_cast<uint64_t>(time(nullptr));
         return OFSErrorCodes::SUCCESS;
     }
     return OFSErrorCodes::ERROR_PERMISSION_DENIED;
 }
 
-vector<UserInfo> UserManagerHash::listUsersSorted() const 
-{
-    vector<UserInfo> v;
-    v.reserve(map_.size());
-    for (const auto &p : map_) 
-    {
-        v.push_back(p.second);
-    }
-    sort(v.begin(), v.end(), [](const UserInfo& a, const UserInfo& b) 
-    {
-        return std::strncmp(a.username, b.username, sizeof(a.username)) < 0;
-    });
-    return v;
-}
-
-void UserManagerHash::clear() 
-{
-    map_.clear();
-}
-
 uint32_t UserManagerHash::userCount() const 
 {
-    return static_cast<uint32_t>(map_.size());
+    return static_cast<uint32_t>(size);
 }
