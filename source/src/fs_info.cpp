@@ -64,22 +64,35 @@ void free_buffer(void* buffer)
     }
 }
 
-const char* get_error_message(int error_code) 
+const char* get_error_message(int error_code)
 {
-    switch (error_code) 
+    switch (error_code)
     {
-        case 0: return "SUCCESS";
-        case -1: return "ERROR_INVALID_OPERATION";
-        case -2: return "ERROR_IO_ERROR";
-        case -3: return "ERROR_NOT_FOUND";
-        case -4: return "ERROR_FILE_EXISTS";
-        case -5: return "ERROR_PERMISSION_DENIED";
-        case -6: return "ERROR_INVALID_SESSION";
-        case -7: return "ERROR_INVALID_CONFIG";
-        case -8: return "ERROR_FILE_TOO_LARGE";
-        case -9: return "ERROR_STORAGE_FULL";
-        case -10: return "ERROR_DIR_NOT_EMPTY";
-        case -11: return "ERROR_UNKNOWN";
-        default: return "UNKNOWN_ERROR_CODE";
+        case static_cast<int>(OFSErrorCodes::SUCCESS):
+            return "SUCCESS";
+        case static_cast<int>(OFSErrorCodes::ERROR_NOT_FOUND):
+            return "ERROR_NOT_FOUND";
+        case static_cast<int>(OFSErrorCodes::ERROR_PERMISSION_DENIED):
+            return "ERROR_PERMISSION_DENIED";
+        case static_cast<int>(OFSErrorCodes::ERROR_IO_ERROR):
+            return "ERROR_IO_ERROR";
+        case static_cast<int>(OFSErrorCodes::ERROR_INVALID_PATH):
+            return "ERROR_INVALID_PATH";
+        case static_cast<int>(OFSErrorCodes::ERROR_FILE_EXISTS):
+            return "ERROR_FILE_EXISTS";
+        case static_cast<int>(OFSErrorCodes::ERROR_NO_SPACE):
+            return "ERROR_NO_SPACE";
+        case static_cast<int>(OFSErrorCodes::ERROR_INVALID_CONFIG):
+            return "ERROR_INVALID_CONFIG";
+        case static_cast<int>(OFSErrorCodes::ERROR_NOT_IMPLEMENTED):
+            return "ERROR_NOT_IMPLEMENTED";
+        case static_cast<int>(OFSErrorCodes::ERROR_INVALID_SESSION):
+            return "ERROR_INVALID_SESSION";
+        case static_cast<int>(OFSErrorCodes::ERROR_DIRECTORY_NOT_EMPTY):
+            return "ERROR_DIRECTORY_NOT_EMPTY";
+        case static_cast<int>(OFSErrorCodes::ERROR_INVALID_OPERATION):
+            return "ERROR_INVALID_OPERATION";
+        default:
+            return "UNKNOWN_ERROR_CODE";
     }
 }

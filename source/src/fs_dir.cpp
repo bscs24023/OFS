@@ -4,9 +4,17 @@
 #include <vector>
 
 using namespace std;
-#define ERROR_DIR_NOT_EMPTY -8
 
 extern FileSystemInstance* g_fs;
+
+static bool is_direct_child(const char* full, const char* parent)
+{
+    int plen = strlen(parent);
+    if (strncmp(full, parent, plen) != 0) return false;
+    if (full[plen] != '/') return false;
+    const char* rest = full + plen + 1;
+    return strchr(rest, '/') == nullptr;
+}
 
 int dir_create(void* session, const char* path) 
 {
@@ -35,35 +43,49 @@ int dir_create(void* session, const char* path)
     return static_cast<int>(OFSErrorCodes::SUCCESS);
 }
 
-int dir_list(void* session, const char* path, FileEntry** entries, int* count) {
-    if (!session || !path || !entries || !count) {
+int dir_list(void* session, const char* path, FileEntry** entries, int* count)
+{
+    if (!session || !path || !entries || !count)
         return static_cast<int>(OFSErrorCodes::ERROR_INVALID_OPERATION);
-    }
 
     vector<FileEntry> result;
-    size_t prefixLen = strlen(path);
-    for (auto& f : g_fs->files) 
+    string base = string(path);
+
+    if (base.size() > 1 && base.back() == '/')
+        base.pop_back();
+
+    size_t baseLen = base.size();
+
+    for (auto& f : g_fs->files)
     {
-        if (strncmp(f.path, path, prefixLen) == 0 && f.path[prefixLen] == '/' && strcmp(f.path, path) != 0) 
+        string fp = string(f.path);
+
+        if (fp == base) continue;
+
+        if (fp.size() > baseLen &&
+            fp.compare(0, baseLen, base) == 0 &&
+            fp[baseLen] == '/')
         {
-            result.push_back(f.entry);
+            string rest = fp.substr(baseLen + 1);
+            if (rest.find('/') == string::npos)
+                result.push_back(f.entry);
         }
     }
 
-    if (result.empty()) {
+    *count = result.size();
+    if (*count == 0)
+    {
         *entries = nullptr;
-        *count = 0;
         return static_cast<int>(OFSErrorCodes::SUCCESS);
     }
 
-    *count = static_cast<int>(result.size());
     *entries = new FileEntry[*count];
-    for (int i = 0; i < *count; i++) {
+    for (int i = 0; i < *count; ++i)
         (*entries)[i] = result[i];
-    }
 
     return static_cast<int>(OFSErrorCodes::SUCCESS);
 }
+
 
 int dir_delete(void* session, const char* path) 
 {
@@ -75,15 +97,16 @@ int dir_delete(void* session, const char* path)
     size_t prefixLen = strlen(path);
     for (auto& f : g_fs->files) 
     {
-        if (strncmp(f.path, path, prefixLen) == 0 && f.path[prefixLen] == '/' && strcmp(f.path, path) != 0) 
+        if (strcmp(f.path, path) != 0 && is_direct_child(f.path, path))
         {
-            return ERROR_DIR_NOT_EMPTY;
+            return (int)OFSErrorCodes::ERROR_DIRECTORY_NOT_EMPTY;
         }
+
     }
 
     for (size_t i = 0; i < g_fs->files.size(); ++i) 
     {
-        if (strcmp(g_fs->files[i].path, path) == 0 && (EntryType)g_fs->files[i].entry.type == EntryType::DIRECTORY) 
+        if (strcmp(g_fs->files[i].path, path) == 0 && g_fs->files[i].entry.type == (uint8_t)EntryType::DIRECTORY) 
         {
             g_fs->files.erase(g_fs->files.begin() + i);
         
@@ -105,7 +128,7 @@ int dir_exists(void* session, const char* path)
     for (auto& f : g_fs->files) 
     {
 
-        if (strcmp(f.path, path) == 0 && (EntryType)f.entry.type == EntryType::DIRECTORY) {
+        if (strcmp(f.path, path) == 0 && f.entry.type == (uint8_t)EntryType::DIRECTORY) {
             return static_cast<int>(OFSErrorCodes::SUCCESS);
         }
     }
