@@ -11,6 +11,7 @@ using namespace std;
 struct FileSystemInstance
 {
     vector<FileMetadata> files;
+    vector<string> file_contents;
     vector<UserInfo> users;
     vector<SessionInfo*> sessions;
     string omni_path;

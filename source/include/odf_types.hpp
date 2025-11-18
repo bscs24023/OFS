@@ -182,13 +182,14 @@ struct FileMetadata {
     uint64_t blocks_used;       // Number of blocks used
     uint64_t actual_size;       // Actual size on disk (may differ from logical size)
     uint8_t reserved[64];       // Reserved
+    std::string content;
 
     // Default constructor
     FileMetadata() = default;
     
     // Constructor
     FileMetadata(const std::string& file_path, const FileEntry& file_entry)
-        : entry(file_entry), blocks_used(0), actual_size(0) {
+        : entry(file_entry), blocks_used(0), actual_size(0),content("") {
         std::strncpy(path, file_path.c_str(), sizeof(path) - 1);
         path[sizeof(path) - 1] = '\0';
         std::memset(reserved, 0, sizeof(reserved));
