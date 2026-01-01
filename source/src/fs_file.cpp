@@ -5,7 +5,9 @@
 
 using namespace std;
 
+static const char ENCRYPTION_KEY[] = "OFS_SECRET_KEY_2025";
 extern FileSystemInstance* g_fs;
+static const size_t KEY_LEN = sizeof(ENCRYPTION_KEY) - 1;
 
 int file_create(void* session, const char* path, const char* data, size_t size)
 {
@@ -42,6 +44,18 @@ int file_create(void* session, const char* path, const char* data, size_t size)
     g_fs->stats.free_space -= size;
 
     return (int)OFSErrorCodes::SUCCESS;
+}
+
+static void encrypt_data(char* data, size_t size)
+{
+    for (size_t i = 0; i < size; ++i)
+        data[i] ^= ENCRYPTION_KEY[i % KEY_LEN];
+}
+
+static void decrypt_data(char* data, size_t size)
+{
+    for (size_t i = 0; i < size; ++i)
+        data[i] ^= ENCRYPTION_KEY[i % KEY_LEN];
 }
 
 
