@@ -6,7 +6,8 @@
 #include <ctime>
 
 using namespace std;
-
+static const char ENCRYPTION_KEY[] = "OFS_SECRET_KEY_2025";
+static const size_t KEY_LEN = sizeof(ENCRYPTION_KEY) - 1;
 FileSystemInstance* g_fs = nullptr;
 
 static const unsigned long long DEFAULT_TOTAL_SIZE = 4ULL * 1024 * 1024;
@@ -27,6 +28,19 @@ static int read_header_from_file(const char* path, OMNIHeader& out_hdr)
     ifs.read(reinterpret_cast<char*>(&out_hdr), sizeof(OMNIHeader));
     return ifs ? static_cast<int>(OFSErrorCodes::SUCCESS) : static_cast<int>(OFSErrorCodes::ERROR_IO_ERROR);
 }
+
+static void encrypt_data(char* data, size_t size)
+{
+    for (size_t i = 0; i < size; ++i)
+        data[i] ^= ENCRYPTION_KEY[i % KEY_LEN];
+}
+
+static void decrypt_data(char* data, size_t size)
+{
+    for (size_t i = 0; i < size; ++i)
+        data[i] ^= ENCRYPTION_KEY[i % KEY_LEN];
+}
+
 
 int fs_format(const char* omni_path, const char* config_path)
 {
